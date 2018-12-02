@@ -5,6 +5,13 @@ import os
 from sqlalchemy import *
 from sqlalchemy.pool import NullPool
 from flask import Flask, request, render_template, g, redirect, Response
+import flask
+
+import pandas as pd
+
+from nesting import Nest
+
+from collections import OrderedDict
 
 tmpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
 app = Flask(__name__, template_folder=tmpl_dir)
@@ -63,6 +70,19 @@ def teardown_request(exception):
     pass
 
 
+@app.after_request
+def add_header(r):
+    """
+    Add headers to both force latest IE rendering engine or Chrome Frame,
+    and also to cache the rendered page for 10 minutes.
+    """
+    r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    r.headers["Pragma"] = "no-cache"
+    r.headers["Expires"] = "0"
+    r.headers['Cache-Control'] = 'public, max-age=0'
+    return r
+
+
 
 @app.route('/')
 def index():
@@ -71,6 +91,54 @@ def index():
 
 
 
+def _entries(self, data, depth=0):
+  if depth == (len(self._keys) - 1):
+      return [ OrderedDict([('name',k), ('size',v[0]['total'])]) for k, v in data.iteritems() ]
+      # return data
+  
+  values = [ OrderedDict([('name',k), ('children',_entries(self, v, depth+1))]) for k, v in data.iteritems() ]
+  
+  # keySort = self._sortKeys[depth]
+  # if keySort:
+  #     propCmp = keySort.pop('cmp', cmp)
+  #     values = sorted(values, cmp=lambda a, b: propCmp(a['key'], b['key']), **keySort)
+  
+  return values
+
+
+@app.route('/nested')#, methods=['POST'])
+def nested():
+
+  attrs = ['institution', 'degree', 'term', 'decision']
+
+  attrStr = ', '.join(attrs)
+
+  query = """
+    SELECT {attrs}, count(*) as total
+    FROM results
+    where institution IN ('Columbia University', 'Carnegie Mellon University (CMU)')
+    and term in ('F18', 'F17')
+    group by {attrs}
+  """.format(
+    attrs=attrStr
+  )
+
+  results = pd.read_sql(query, g.conn).to_dict(orient='records')
+
+  nest = Nest()
+  for a in attrs:
+    nest = nest.key(a)
+
+  nested = _entries(nest,nest.map(results))
+
+  # return str(nested)
+
+  return flask.jsonify(dict(name='sunburst',children=nested))
+
+
+
+
+  # return flask.jsonify(pd.read_sql(query, g.conn).to_json(orient='records'))
 
 
 

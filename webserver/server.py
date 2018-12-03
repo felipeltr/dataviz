@@ -135,6 +135,21 @@ def _entries(self, data, depth=0):
   
   return values
 
+def parseFilters(filters):
+
+  nested = Nest().key('name').map(filters)
+
+  conditions = []
+
+  for name, items in nested.items():
+    values = ', '.join(map(lambda x: "'"+x['value']+"'",items))
+
+    conditions.append(name+' IN ( '+values+')')
+
+  condition = " AND ".join(conditions)
+
+  return condition
+
 
 @app.route('/nested', methods=['POST'])
 def nested():
@@ -142,18 +157,29 @@ def nested():
   attrs = ['institution', 'degree', 'term', 'decision']
   attrs = ['institution', 'degree', 'decision']
 
-  attrs = request.form.getlist('burstCols[]')
+  # attrs = request.form.getlist('burstCols[]')
+
+  data = request.get_json()
+
+  attrs = data['burstCols']
+
+  filterCondition = parseFilters(data['filters'])
+
+  # print data
 
   attrStr = ', '.join(attrs)
 
   query = """
     SELECT {attrs}, count(*) as total
     FROM results
-    where institution IN ('Columbia University', 'Carnegie Mellon University (CMU)')
-    and term in ('F18', 'F17')
+    --where
+    --institution IN ('Columbia University', 'Carnegie Mellon University (CMU)') and
+    --term in ('F18', 'F17')
+    {extraCondition}
     group by {attrs}
   """.format(
-    attrs=attrStr
+    attrs=attrStr,
+    extraCondition='where '+filterCondition if filterCondition != '' else ''
   )
 
   results = pd.read_sql(query, g.conn).to_dict(orient='records')

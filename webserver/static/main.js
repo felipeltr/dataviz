@@ -39,9 +39,11 @@ function sundraw() {
     url: '/nested',
     async: false,
     method: 'POST',
-    data: {
-      burstCols: burstCols
-    }
+    data: JSON.stringify({
+      burstCols: burstCols,
+      filters: filters
+    }),
+    contentType: "application/json",
   }).responseJSON
 
   width = 400
@@ -77,15 +79,27 @@ function sundraw() {
   
   g = svg.append("g");
   
-  g.append("g")
+  paths = g.append("g")
       .attr("fill-opacity", 0.6)
     .selectAll("path")
     .data(root.descendants().filter(d => d.depth))
     .enter().append("path")
       .attr("fill", d => { while (d.depth > 1) d = d.parent; return color(d.data.name); })
       .attr("d", arc)
-    .append("title")
+      .style('cursor', 'pointer');
+
+  paths.append("title")
       .text(d => `${d.ancestors().map(d => d.data.name).reverse().join("/")}\n${format(d.value)}`);
+
+
+  paths.on("click", function() {
+    
+
+    paths.attr("fill-opacity", 0.2)
+    $(this).attr("fill-opacity", 0.7)
+
+    alert("You clicked on: "+$(this).text().split("\n")[0])
+  });
 
   g.append("g")
       .attr("pointer-events", "none")
@@ -99,7 +113,7 @@ function sundraw() {
         return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
       })
       .attr("dy", "0.035em")
-      .style('font', '10px sans-serif')
+      .style('font', '8px sans-serif')
       .text(d => d.data.name);
 
   // document.body.appendChild(svg.node());

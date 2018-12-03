@@ -52,6 +52,14 @@
         /*width: 120px;*/
       }
 
+      #sortable1 a, #sortable2 a {
+        width: 120px;
+      }
+
+      #sortable2 .btn-primary {
+        background-color: lightgrey;
+      }
+
     </style>
 
 
@@ -77,22 +85,30 @@
 
 
         <div class="container">
-          <div class="row">
-            <h4>Filters</h4>
-
+          <div class="row" >
+            <div class="col">
+              <h4>Filters</h4>
+            </div>
+            
+            <div class="col-md-auto" style="width: 90%; text-align: right; ">
+              (use ctrl to select multiple) 
+            </div>
+            <!-- <div class="col-lg"> -->
+              
+            <!-- </div> -->
           </div>
             <div class="row">
               <form id="filters"><div class="row">
               {% for o in options %}
                 <div class="col{{'' if o['colname'] == 'institution' else '-2' }}" >
                   <!-- <h5>{{o['title']}}</h5> -->
-                  <label for="select-{{o['colname']}}" style="float: left">{{o['title']}}</label>
+                  <label for="select-{{o['colname']}}" style="float: left"><strong>{{o['title']}}</strong></label>
                   <select class="form-control" id="select-{{o['colname']}}" name="{{o['colname']}}" multiple>
                   {% for v in o['values'] %}
                     <option value="{{v}}">{{v}}</option>
                   {% endfor %}
                   </select>
-                  <br/><br/>
+                  
                 </div>
               {% endfor %}
             
@@ -100,6 +116,16 @@
             </div></form>
 
             </div>
+            <div class="row">
+              <div class="col-lg-auto" style="width: 80%"></div>
+              <div class="col" style="max-width: 100px; float: right">
+                <br/>
+                <button type="button" id="filter-apply" class="btn btn-success">Apply filters</button>
+                <br/><br/>
+              </div>
+
+            </div>
+
         </div>
         <div class="container">
 
@@ -112,18 +138,18 @@
               <div class="row">
                 <ul id="sortable1" class="connectedSortable">
                   <li class="ui-state-default">
-                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
-                      <i class="fas fa-arrows-alt-v"></i> Institution
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab">
+                      <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Institution
                     </a>
                   </li>
                   <li class="ui-state-default">
                     <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
-                      <i class="fas fa-arrows-alt-v"></i> Degree
+                      <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Degree
                     </a>
                   </li>
                   <li class="ui-state-default">
                     <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
-                      <i class="fas fa-arrows-alt-v"></i> Decision
+                      <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Decision
                     </a>
                   </li>
 
@@ -133,12 +159,12 @@
                 <ul id="sortable2" class="connectedSortable" style="background-color: lightgrey">
                   <li class="ui-state-default">
                     <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
-                      <i class="fas fa-arrows-alt-v"></i> Status
+                      <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Status
                     </a>
                   </li>
                   <li class="ui-state-default">
                     <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
-                      <i class="fas fa-arrows-alt-v"></i> Term
+                      <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Term
                     </a>
                   </li>
 
@@ -149,7 +175,7 @@
               <svg id="sunburst" style="width: 100%; height: auto; padding: 10px; font: 6px sans-serif; box-sizing: border-box;"></svg>
               
             </div>
-            <div class="col" style="max-width: 200px ">
+            <div class="col" style="max-width: 150px ">
             </div>
           </div>
             
@@ -180,6 +206,11 @@
     <script>
 
       var burstCols = [];
+      var filters = [];
+
+      function resetCharts() {
+        sundraw()
+      }
 
       function updateBurstCols() {
         burstCols = [];
@@ -188,6 +219,12 @@
       }
       updateBurstCols()
 
+      function updateFilterValues() {
+        filters = $('#filters').serializeArray()
+      }
+
+      
+
 
       $( function() {
         $( "#sortable1, #sortable2" ).sortable({
@@ -195,15 +232,28 @@
           stop: function( e, ui ) {
             
             updateBurstCols()
-            sundraw()
+            resetCharts()
 
           }
         }).disableSelection();
       } );
 
+      $('#filter-apply').click( function() {
+        // filters = $('#filters').serializeArray()
+        updateFilterValues()
 
+        // console.log(filters)
 
-      sundraw()
+        resetCharts()
+      });
+
+      $('#select-institution option[value="Columbia University"]').attr('selected','selected');
+      $('#select-institution option[value="Cornell University"]').attr('selected','selected');
+      $('#select-institution option[value="Yale University"]').attr('selected','selected');
+
+      updateFilterValues()
+
+      resetCharts()
     </script>
       
 

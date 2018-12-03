@@ -35,3 +35,7 @@ select
 	program as program_old,
 	decision, status, date, gpa, v, q, w, notes
 from joined
+where institution in (
+	select name
+	from top
+)

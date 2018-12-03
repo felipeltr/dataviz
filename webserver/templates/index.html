@@ -15,7 +15,14 @@
 
     <!-- Bootstrap core CSS -->
     <!--<link href="../../dist/css/bootstrap.min.css" rel="stylesheet">-->
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.5.0/css/all.css" integrity="sha384-B4dIYHKNBt8Bc12p+WXckhzcICo0wtJAoU8YZTY5qE0Id1GSseTk6S+L3BlXeVIU" crossorigin="anonymous">
+
+
+
+    
+
 
     <!-- <link rel= "stylesheet" type= "text/css" href= "{{ url_for('static',filename='mainpage.css') }}"> -->
 
@@ -28,7 +35,26 @@
         padding: 3rem 1.5rem;
         text-align: center;
       }
+      #sortable1, #sortable2 {
+        border: 1px solid #eee;
+        width: 142px;
+        min-height: 20px;
+        list-style-type: none;
+        margin: 0;
+        padding: 5px 0 0 0;
+        float: left;
+        margin-right: 10px;
+      }
+      #sortable1 li, #sortable2 li {
+        margin: 0 5px 5px 5px;
+        /*padding: 5px;*/
+        /*font-size: 1.2em;*/
+        /*width: 120px;*/
+      }
+
     </style>
+
+
 
   </head>
 
@@ -52,15 +78,83 @@
 
         <div class="container">
           <div class="row">
-            <div class="col" >
+            <h4>Filters</h4>
+
+          </div>
+            <div class="row">
+              <form id="filters"><div class="row">
+              {% for o in options %}
+                <div class="col{{'' if o['colname'] == 'institution' else '-2' }}" >
+                  <!-- <h5>{{o['title']}}</h5> -->
+                  <label for="select-{{o['colname']}}" style="float: left">{{o['title']}}</label>
+                  <select class="form-control" id="select-{{o['colname']}}" name="{{o['colname']}}" multiple>
+                  {% for v in o['values'] %}
+                    <option value="{{v}}">{{v}}</option>
+                  {% endfor %}
+                  </select>
+                  <br/><br/>
+                </div>
+              {% endfor %}
+            
+              
+            </div></form>
+
+            </div>
+        </div>
+        <div class="container">
+
+
+          <div class="row">
+            <div class="col" style="max-width: 300px ">
+              <h4 style="float: left">Columns</h4>
+
+              <br/> <br/>
+              <div class="row">
+                <ul id="sortable1" class="connectedSortable">
+                  <li class="ui-state-default">
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
+                      <i class="fas fa-arrows-alt-v"></i> Institution
+                    </a>
+                  </li>
+                  <li class="ui-state-default">
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
+                      <i class="fas fa-arrows-alt-v"></i> Degree
+                    </a>
+                  </li>
+                  <li class="ui-state-default">
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
+                      <i class="fas fa-arrows-alt-v"></i> Decision
+                    </a>
+                  </li>
+
+                </ul>
+              </div>
+              <div class="row">   
+                <ul id="sortable2" class="connectedSortable" style="background-color: lightgrey">
+                  <li class="ui-state-default">
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
+                      <i class="fas fa-arrows-alt-v"></i> Status
+                    </a>
+                  </li>
+                  <li class="ui-state-default">
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
+                      <i class="fas fa-arrows-alt-v"></i> Term
+                    </a>
+                  </li>
+
+                </ul>
+              </div>
+            </div>
+            <div class="col" style="width: 80%">
               <svg id="sunburst" style="width: 100%; height: auto; padding: 10px; font: 6px sans-serif; box-sizing: border-box;"></svg>
               
             </div>
-            <div class="col" >
-
+            <div class="col" style="max-width: 200px ">
             </div>
-            
           </div>
+            
+            
+          
         </div>
 
 
@@ -77,10 +171,41 @@
     <!-- // <script src="../../dist/js/bootstrap.min.js"></script> -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js" integrity="sha384-ZMP7rVo3mIykV+2+9J3UJ46jBk0WLaUAdn689aCwoqbBJiSnjAK/l8WvCWPIPm49" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js" integrity="sha384-ChfqqxuZUCnJSK3+MXmPNIyE6ZbWh2IMqE241rYiqJxyMiZ6OW/JmZQ5stwEULTy" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
 
     <script src="https://d3js.org/d3.v5.min.js"></script>
 
     <script src="{{ url_for('static',filename='main.js') }}?random={{ range(1000, 51000) | random }}"></script>
+
+    <script>
+
+      var burstCols = [];
+
+      function updateBurstCols() {
+        burstCols = [];
+        $('#sortable1 a').each( function() { burstCols.push($(this).text().trim().toLowerCase())})
+        console.log(burstCols)
+      }
+      updateBurstCols()
+
+
+      $( function() {
+        $( "#sortable1, #sortable2" ).sortable({
+          connectWith: ".connectedSortable",
+          stop: function( e, ui ) {
+            
+            updateBurstCols()
+            sundraw()
+
+          }
+        }).disableSelection();
+      } );
+
+
+
+      sundraw()
+    </script>
+      
 
 
   </body>

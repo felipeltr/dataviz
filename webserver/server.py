@@ -82,12 +82,42 @@ def add_header(r):
     r.headers['Cache-Control'] = 'public, max-age=0'
     return r
 
+filters = [
+  ('program','Program'),
+  ('degree','Degree'),
+  ('institution', 'Institution'),
+  ('term', 'Term'),
+
+]
+
 
 
 @app.route('/')
 def index():
+
+  options = []
+
+  for colname, title in filters:
+    cursor = g.conn.execute("""
+        select distinct {colname}
+        from results
+        where {colname} is not null
+        order by 1
+      """.format(
+        colname=colname
+      ))
+
+    values = cursor.fetchall()
+
+    options.append({
+        'colname': colname,
+        'title': title,
+        'values': list(map(lambda x: x[0], values))
+      })
+
+  # return flask.jsonify(options)
   
-  return render_template("index.html")
+  return render_template("index.html",options=options)
 
 
 
@@ -106,10 +136,13 @@ def _entries(self, data, depth=0):
   return values
 
 
-@app.route('/nested')#, methods=['POST'])
+@app.route('/nested', methods=['POST'])
 def nested():
 
   attrs = ['institution', 'degree', 'term', 'decision']
+  attrs = ['institution', 'degree', 'decision']
+
+  attrs = request.form.getlist('burstCols[]')
 
   attrStr = ', '.join(attrs)
 

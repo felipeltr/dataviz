@@ -1,12 +1,6 @@
 
 // alert('aaa')
 
-data = $.ajax({
-  dataType: "json",
-  url: '/nested',
-  async: false
-}).responseJSON
-
 // data = {
 // 	name: 'flare',
 // 	children: [
@@ -30,15 +24,35 @@ data = $.ajax({
 // }
 
 
-width = 200
 
-radius = width / 2
 
-format = d3.format(",d")
 
-color = d3.scaleOrdinal().range(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
+var root;
+var svg;
+var g;
+// var data;
 
-arc = d3.arc()
+function sundraw() {  
+
+  var data = $.ajax({
+    dataType: "json",
+    url: '/nested',
+    async: false,
+    method: 'POST',
+    data: {
+      burstCols: burstCols
+    }
+  }).responseJSON
+
+  width = 400
+
+  radius = width / 2
+
+  format = d3.format(",d")
+
+  color = d3.scaleOrdinal().range(d3.quantize(d3.interpolateRainbow, data.children.length + 1))
+
+  arc = d3.arc()
     .startAngle(d => d.x0)
     .endAngle(d => d.x1)
     .padAngle(d => Math.min((d.x1 - d.x0) / 2, 0.005))
@@ -46,23 +60,18 @@ arc = d3.arc()
     .innerRadius(d => d.y0)
     .outerRadius(d => d.y1 - 1)
 
-partition = data => d3.partition()
-    .size([2 * Math.PI, radius])
-  (d3.hierarchy(data)
-    .sum(d => d.size)
-    .sort((a, b) => b.value - a.value))
-
-
-var root;
-var svg;
-var g;
-
-function sundraw() {  
+  partition = data => d3.partition()
+      .size([2 * Math.PI, radius])
+    (d3.hierarchy(data)
+      .sum(d => d.size)
+      .sort((a, b) => b.value - a.value))
 
 
   root = partition(data);
 
   svg = d3.select("#sunburst")
+
+  svg.selectAll('*').remove()
 
   console.log(svg)
   
@@ -90,7 +99,7 @@ function sundraw() {
         return `rotate(${x - 90}) translate(${y},0) rotate(${x < 180 ? 0 : 180})`;
       })
       .attr("dy", "0.035em")
-      .style('font', '4px sans-serif')
+      .style('font', '10px sans-serif')
       .text(d => d.data.name);
 
   // document.body.appendChild(svg.node());
@@ -108,4 +117,4 @@ function sundraw() {
 
 
 
-sundraw()
+

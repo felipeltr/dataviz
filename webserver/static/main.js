@@ -138,16 +138,51 @@ function redrawScoreBar() {
   bardraw("#scorebar","Score Histogram",dumpId)
 }
 
+
+function updateWordCloud () {
+
+  $.ajax({
+    dataType: "json",
+    url: '/wordcloud',
+    // async: false,
+    method: 'POST',
+    data: JSON.stringify({
+      burstCols: burstCols,
+      filters: filters,
+      score: score,
+      selection: selection
+    }),
+    contentType: "application/json",
+    complete: function (xhr, status) {
+
+      // console.log(xhr)
+      data = xhr.responseText
+
+      $('#wordcloud').attr('src',data)
+
+      $('#wordcloud').show('fade',{},400)
+    }
+  })
+
+
+}
+
 function hideDrilldown() {
   $('#nodrilldown').show()
   $('#drilldown').hide()
+
+  $('#wordcloud').hide()
 }
 
 function showDrilldown() {
+  $('#wordcloud').hide()
   redrawScoreBar()
+  
 
   $('#nodrilldown').hide()
   $('#drilldown').show()
+
+  updateWordCloud()
 }
 
 

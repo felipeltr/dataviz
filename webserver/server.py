@@ -14,6 +14,16 @@ from nesting import Nest
 
 from collections import OrderedDict
 
+import io
+import random
+from flask import Response
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+from matplotlib.figure import Figure
+
+from wordcloud import WordCloud
+
+import base64
+
 tmpl_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates')
 app = Flask(__name__, template_folder=tmpl_dir)
 
@@ -33,13 +43,6 @@ engine = create_engine(DATABASEURI)
 
 @app.before_request
 def before_request():
-  """
-  This function is run at the beginning of every web request 
-  (every time you enter an address in the web browser).
-  We use it to setup a database connection that can be used throughout the request
-
-  The variable g is globally accessible
-  """
   try:
     g.conn = engine.connect()
   except:
@@ -49,10 +52,6 @@ def before_request():
 
 @app.teardown_request
 def teardown_request(exception):
-  """
-  At the end of the web request, this makes sure to close the database connection.
-  If you don't the database could run out of memory!
-  """
   try:
     g.conn.close()
   except Exception as e:
@@ -61,10 +60,6 @@ def teardown_request(exception):
 
 @app.after_request
 def add_header(r):
-    """
-    Add headers to both force latest IE rendering engine or Chrome Frame,
-    and also to cache the rendered page for 10 minutes.
-    """
     r.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     r.headers["Pragma"] = "no-cache"
     r.headers["Expires"] = "0"
@@ -79,6 +74,7 @@ filters = [
   ('degree','Degree'),
   ('institution', 'Institution'),
   ('term', 'Term'),
+  ('status', 'Status')
 ]
 
 scoreBuckets = OrderedDict([
@@ -273,6 +269,73 @@ def getdump(did):
   return content
 
 
+@app.route('/wordcloud', methods=['POST'])
+def plot_png():
+
+  data = request.get_json()
+
+  selection = data['selection']
+  attrs = data['burstCols']
+  filterCondition = parseFilters(data['filters'])
+
+  # selection = 'sunburst/Columbia University/Master'
+  # attrs = ['institution', 'degree', 'decision']
+  # filterCondition = ''
+
+  selectionValues = selection.split('/')[1:]
+  selectionAttrs = attrs[:len(selectionValues)]
+
+  selectionCond = parseFilters([{'name':n,'value':v} for n,v in zip(selectionAttrs,selectionValues) ])
+
+  query = """
+    with top as (
+      SELECT unnest(word_arr) AS word, count(*) AS ct
+      FROM   results
+      where true
+      {selCond}
+      {filterCond}
+      GROUP  BY 1
+      ORDER  BY 2 DESC
+    )
+    select *
+    from top
+    where word not in (
+      select *
+      from stopwords
+    ) and length(word)>1
+    LIMIT 60
+  """.format(
+    selCond='and '+selectionCond if selectionCond != '' else '',
+    filterCond='and '+filterCondition if filterCondition != '' else '',
+  )
+
+
+  cursor = g.conn.execute(query)
+
+  values = cursor.fetchall()
+
+  freqs = {t[0]: t[1] for t in values} if len(values) > 0 else {' ': 0}
+
+  fig = create_figure(freqs)
+  output = io.BytesIO()
+  FigureCanvas(fig).print_png(output)
+  return 'data:image/png;base64,'+base64.b64encode(output.getvalue())
+  return Response(output.getvalue(), mimetype='image/png')
+
+def create_figure(freqs):
+    fig = Figure(figsize=(4.8,3.6), dpi=150)
+    # f = {'test':10,'abc':5,'def':7,'viz':2}
+    # f = {' ':1}
+    wordcloud = WordCloud(background_color='white').generate_from_frequencies(freqs)
+    # plt.figure()
+    fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+    plt = fig.add_subplot(1, 1, 1)
+    plt.imshow(wordcloud, interpolation="bilinear")
+
+    plt.axis("off")
+    return fig
+
+
 
 if __name__ == "__main__":
   import click
@@ -283,17 +346,6 @@ if __name__ == "__main__":
   @click.argument('HOST', default='0.0.0.0')
   @click.argument('PORT', default=80, type=int)
   def run(debug, threaded, host, port):
-    """
-    This function handles command line parameters.
-    Run the server using
-
-        python server.py
-
-    Show the help text using
-
-        python server.py --help
-
-    """
 
     threaded=True
 

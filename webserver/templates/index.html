@@ -11,7 +11,7 @@
     <meta http-equiv='pragma' content='no-cache'>
     
 
-    <title>VizCafe</title>
+    <title>GradAnalytics</title>
 
     <!-- Bootstrap core CSS -->
     <!--<link href="../../dist/css/bootstrap.min.css" rel="stylesheet">-->
@@ -69,7 +69,7 @@
   <body>
 
     <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-      <a class="navbar-brand" href="#">VizCafe</a>
+      <a class="navbar-brand" href="#">GradAnalytics</a>
       <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault" aria-expanded="false" aria-label="Toggle navigation">
         <span class="navbar-toggler-icon"></span>
       </button>
@@ -100,7 +100,7 @@
             <div class="row">
               <form id="filters"><div class="row">
               {% for o in options %}
-                <div class="col{{'' if o['colname'] == 'institution' else '-2' }}" >
+                <div class="col{{'-2-auto' if o['colname'] == 'institution' or o['colname'] == 'program' else '' }}" >
                   <!-- <h5>{{o['title']}}</h5> -->
                   <label for="select-{{o['colname']}}" style="float: left"><strong>{{o['title']}}</strong></label>
                   <select class="form-control" id="select-{{o['colname']}}" name="{{o['colname']}}" multiple>
@@ -169,6 +169,11 @@
                       <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Term
                     </a>
                   </li>
+                  <li class="ui-state-default">
+                    <a class="btn btn-primary" style="font-size: 15px; cursor: grab;">
+                      <i class="fas fa-arrows-alt-v" style="float: left; padding-top: 4px"></i> Program
+                    </a>
+                  </li>
 
                 </ul>
               </div>
@@ -207,7 +212,14 @@
             </form>
           </div>
           <div class="row">
-            <svg id="scorebar" width="800" height="400"></svg>
+            <div class="col">
+              <svg id="scorebar" width="550" height="320"></svg>
+            </div>
+            <div class="col">
+              <figure style="overflow:hidden; margin:0;">
+                <img id="wordcloud" src="{{ url_for('static',filename='blank.png') }}" style="display:block; width:100%" />
+              </figure>
+            </div>
           </div>
 
         </div>
@@ -249,6 +261,7 @@
 
       function resetCharts() {
         sundraw()
+        hideDrilldown()
       }
 
       function updateBurstCols() {
@@ -294,6 +307,7 @@
         resetCharts()
       });
 
+      $('#select-program option[value="Computer Science"]').attr('selected','selected');
       $('#select-institution option[value="Columbia University"]').attr('selected','selected');
       $('#select-institution option[value="Cornell University"]').attr('selected','selected');
       $('#select-institution option[value="Yale University"]').attr('selected','selected');

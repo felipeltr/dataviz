@@ -23,13 +23,13 @@
 
 // }
 
-function bardraw(selector, title, dumpId) {
+function bardraw(selector, title, dumpId, rotateLabels = false) {
 
   var svg = d3.select(selector)
 
   svg.selectAll('*').remove()
 
-  var margin = {top: 20, right: 20, bottom: 30, left: 40},
+  var margin = {top: 20, right: 20, bottom: 50, left: 40},
       width = +svg.attr("width") - margin.left - margin.right,
       height = +svg.attr("height") - margin.top - margin.bottom,
       g = svg.append("g").attr("transform", "translate(" + margin.left + "," + margin.top + ")");
@@ -78,10 +78,17 @@ function bardraw(selector, title, dumpId) {
         .attr("height", function(d) { return height - y(d.value); })
         .attr("fill", function(d) { return z(d.key); });
 
-    g.append("g")
+
+    xAxis = g.append("g")
         .attr("class", "axis")
         .attr("transform", "translate(0," + height + ")")
         .call(d3.axisBottom(x0));
+    if (rotateLabels)
+      xAxis.selectAll("text") 
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-65)");
 
     g.append("g")
         .attr("class", "axis")
@@ -139,6 +146,25 @@ function redrawScoreBar() {
 }
 
 
+function redrawTimeline() {
+  dumpId = $.ajax({
+    dataType: "json",
+    url: '/timeline',
+    async: false,
+    method: 'POST',
+    data: JSON.stringify({
+      dateagg: dateagg,
+      burstCols: burstCols,
+      filters: filters,
+      selection: selection
+    }),
+    contentType: "application/json",
+  }).responseJSON.id
+
+  bardraw("#timeline","Timeline",dumpId, true)
+}
+
+
 function updateWordCloud () {
 
   $.ajax({
@@ -177,6 +203,7 @@ function hideDrilldown() {
 function showDrilldown() {
   $('#wordcloud').hide()
   redrawScoreBar()
+  redrawTimeline()
   
 
   $('#nodrilldown').hide()
@@ -298,12 +325,22 @@ function sundraw() {
 
         var matches = name.match(/\((.*?)\)/);
 
+
+
         if (matches) {
             var submatch = matches[1];
             return submatch
         }
 
-        return name.split("University")[0]
+        split = name.split("University")
+
+        if (split.length > 1)
+          return split[0]
+        else
+          return split[0]
+            .replace('Computer Science', 'Comp. Sci.')
+            .replace('Data Science', 'Data Sci.')
+            .replace('Urban Planning', 'Urban Plan.')
 
       });
 

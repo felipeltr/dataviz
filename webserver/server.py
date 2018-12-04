@@ -193,6 +193,8 @@ def nested():
   return flask.jsonify(dict(name='sunburst',children=nested))
 
 
+
+
 @app.route('/scores', methods=['POST'])
 def scores():
 
@@ -254,6 +256,89 @@ def scores():
   return flask.jsonify({'id':values[0]})
 
 
+
+#########################################################
+
+
+@app.route('/timeline', methods=['POST'])
+def timeline():
+
+  data = request.get_json()
+
+  dateagg = data['dateagg']
+  selection = data['selection']
+  attrs = data['burstCols']
+  filterCondition = parseFilters(data['filters'])
+
+  # selection = 'sunburst/Columbia University/Master'
+  # attrs = ['institution', 'degree', 'decision']
+  # filterCondition = ''
+
+  selectionValues = selection.split('/')[1:]
+  selectionAttrs = attrs[:len(selectionValues)]
+
+  groupingCol = attrs[len(selectionValues)] if len(attrs) > len(selectionValues) else "'-'"
+
+  selectionCond = parseFilters([{'name':n,'value':v} for n,v in zip(selectionAttrs,selectionValues) ])
+
+  monthExpr = "substring(date::text from 1 for 7)" if dateagg == 'my' else 'substring(date::text from 6 for 2)'
+
+  query = """
+    with grouped as (
+      select  date_trunc('month', date::timestamp) date, {groupingCol} as "group", count(*) as ct
+      from results
+      where date is not null
+      {selCond}
+      {filterCond}
+      group by 1, 2
+    ), series as (
+      select *
+      from grouped
+      UNION ALL
+      select generate_series((select min(date) from grouped),(select max(date) from grouped ),'1 month'), 'dummy', 0
+    )
+    select {monthExpr} as month, "group", sum(ct) as ct
+    from series
+    group by 1, 2
+    order by 1, 2
+
+  """.format(
+    monthExpr=monthExpr,
+    groupingCol=groupingCol,
+    selCond='and '+selectionCond if selectionCond != '' else '',
+    filterCond='and '+filterCondition if filterCondition != '' else '',
+  )
+
+  df = pd.read_sql(query,g.conn)
+
+  pivoted = df.pivot_table(
+    values='ct',
+    index='month',
+    columns='group',
+    aggfunc=np.sum,
+    dropna=False,
+    fill_value=0
+  ).drop('dummy',axis=1)
+
+  csv = pivoted.to_csv(index=True,index_label='group')
+
+  cursor = g.conn.execute("""
+      insert into dump(content) values ('{csv}') returning id
+    """.format(
+      csv=csv
+    ))
+
+  values = cursor.fetchone()
+
+  return flask.jsonify({'id':values[0]})
+
+
+
+
+
+
+
+
 @app.route('/getdump/<did>')
 def getdump(did):
   cursor = g.conn.execute("""
@@ -267,6 +352,8 @@ def getdump(did):
   content = cursor.fetchone()[0]
 
   return content
+
+
 
 
 @app.route('/wordcloud', methods=['POST'])
@@ -325,7 +412,7 @@ def plot_png():
 def create_figure(freqs):
     fig = Figure(figsize=(4.8,3.6), dpi=150)
     # f = {'test':10,'abc':5,'def':7,'viz':2}
-    # f = {' ':1}
+    freqs = {' ':1}
     wordcloud = WordCloud(background_color='white').generate_from_frequencies(freqs)
     # plt.figure()
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)

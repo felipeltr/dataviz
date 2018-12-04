@@ -412,7 +412,7 @@ def plot_png():
 def create_figure(freqs):
     fig = Figure(figsize=(4.8,3.6), dpi=150)
     # f = {'test':10,'abc':5,'def':7,'viz':2}
-    freqs = {' ':1}
+    # freqs = {' ':1}
     wordcloud = WordCloud(background_color='white').generate_from_frequencies(freqs)
     # plt.figure()
     fig.subplots_adjust(left=0, right=1, top=1, bottom=0)

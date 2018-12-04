@@ -7,6 +7,7 @@ from sqlalchemy.pool import NullPool
 from flask import Flask, request, render_template, g, redirect, Response
 import flask
 
+import numpy as np
 import pandas as pd
 
 from nesting import Nest
@@ -26,19 +27,7 @@ DB_SERVER = "localhost"
 DATABASEURI = "postgresql://"+DB_USER+":"+DB_PASSWORD+"@"+DB_SERVER+"/gradcafe"
 
 
-#
-# This line creates a database engine that knows how to connect to the URI above
-#
 engine = create_engine(DATABASEURI)
-
-
-# Here we create a test table and insert some values in it
-# engine.execute("""DROP TABLE IF EXISTS test;""")
-# engine.execute("""CREATE TABLE IF NOT EXISTS test (
-#   id serial,
-#   name text
-# );""")
-# engine.execute("""INSERT INTO test(name) VALUES ('grace hopper'), ('alan turing'), ('ada lovelace');""")
 
 
 
@@ -82,15 +71,26 @@ def add_header(r):
     r.headers['Cache-Control'] = 'public, max-age=0'
     return r
 
+
+# Configs
+
 filters = [
   ('program','Program'),
   ('degree','Degree'),
   ('institution', 'Institution'),
   ('term', 'Term'),
-
 ]
 
+scoreBuckets = OrderedDict([
+  ('q',{'colname':'q', 'title':'Q-GRE', 'range':(130,171,5) }),
+  ('v',{'colname':'v', 'title':'V-GRE', 'range':(130,171,5) }),
+  ('w',{'colname':'w', 'title':'W-GRE', 'range':(1,7.1,0.5) }),
+  ('gpa',{'colname':'gpa', 'title':'UG-GPA', 'range':(2.5,4.01,0.25) })
+])
+  
 
+
+#############
 
 @app.route('/')
 def index():
@@ -117,7 +117,10 @@ def index():
 
   # return flask.jsonify(options)
   
-  return render_template("index.html",options=options)
+  return render_template("index.html",
+    options=options,
+    scores=scoreBuckets.values()
+  )
 
 
 
@@ -154,8 +157,8 @@ def parseFilters(filters):
 @app.route('/nested', methods=['POST'])
 def nested():
 
-  attrs = ['institution', 'degree', 'term', 'decision']
-  attrs = ['institution', 'degree', 'decision']
+  # attrs = ['institution', 'degree', 'term', 'decision']
+  # attrs = ['institution', 'degree', 'decision']
 
   # attrs = request.form.getlist('burstCols[]')
 
@@ -190,45 +193,85 @@ def nested():
 
   nested = _entries(nest,nest.map(results))
 
-  # return str(nested)
 
   return flask.jsonify(dict(name='sunburst',children=nested))
 
 
+@app.route('/scores', methods=['POST'])
+def scores():
+
+  data = request.get_json()
+
+  score = data['score']
+  selection = data['selection']
+  attrs = data['burstCols']
+  filterCondition = parseFilters(data['filters'])
 
 
-  # return flask.jsonify(pd.read_sql(query, g.conn).to_json(orient='records'))
+  # score = 'v'
+  # selection = 'sunburst/Columbia University/MS'
+  # attrs = ['institution', 'degree', 'decision']
+  # filterCondition = ''
+
+  selectionValues = selection.split('/')[1:]
+  selectionAttrs = attrs[:len(selectionValues)]
+
+  groupingCol = attrs[len(selectionValues)] if len(attrs) > len(selectionValues) else "'-'"
+
+  binRange = np.arange(*scoreBuckets[score]['range'])
+  bins = list(zip(binRange[:-1],binRange[1:]))
+
+  selectionCond = parseFilters([{'name':n,'value':v} for n,v in zip(selectionAttrs,selectionValues) ])
 
 
+  colTemplate = ' SUM(CASE WHEN {col} > {min} AND {col} <= {max} THEN 1 ELSE 0 END) AS "( {min}; {max} ]" '
+
+  cols = [colTemplate.format(col=score,min=v0,max=v1) for v0, v1 in bins]
+
+  query = """
+    select
+      {groupingCol} as group,
+      {cols}
+    from results
+    where true
+    {selCond}
+    {filterCond}
+    group by 1
+    order by 1
+  """.format(
+    groupingCol=groupingCol,
+    cols=',\n'.join(cols),
+    selCond='and '+selectionCond if selectionCond != '' else '',
+    filterCond='and '+filterCondition if filterCondition != '' else '',
+  )
+
+  csv = pd.read_sql(query,g.conn).set_index('group').T.to_csv(index=True,index_label='group')
+
+  cursor = g.conn.execute("""
+      insert into dump(content) values ('{csv}') returning id
+    """.format(
+      csv=csv
+    ))
+
+  values = cursor.fetchone()
+
+  return flask.jsonify({'id':values[0]})
 
 
-#
-# This is an example of a different path.  You can see it at
-# 
-#     localhost:8111/another
-#
-# notice that the functio name is another() rather than index()
-# the functions for each app.route needs to have different names
-#
-# @app.route('/another')
-# def another():
-#   return render_template("anotherfile.html")
+@app.route('/getdump/<did>')
+def getdump(did):
+  cursor = g.conn.execute("""
+      select content
+      from dump
+      where id = {did}
+    """.format(
+      did=did
+    ))
 
+  content = cursor.fetchone()[0]
 
-# # Example of adding new data to the database
-# @app.route('/add', methods=['POST'])
-# def add():
-#   name = request.form['name']
-#   print name
-#   cmd = 'INSERT INTO test(name) VALUES (:name1), (:name2)';
-#   g.conn.execute(text(cmd), name1 = name, name2 = name);
-#   return redirect('/')
+  return content
 
-
-# @app.route('/login')
-# def login():
-#     abort(401)
-#     this_is_never_executed()
 
 
 if __name__ == "__main__":
@@ -238,7 +281,7 @@ if __name__ == "__main__":
   @click.option('--debug', is_flag=True)
   @click.option('--threaded', is_flag=True)
   @click.argument('HOST', default='0.0.0.0')
-  @click.argument('PORT', default=8111, type=int)
+  @click.argument('PORT', default=80, type=int)
   def run(debug, threaded, host, port):
     """
     This function handles command line parameters.
